@@ -1,0 +1,56 @@
+# LOCAL DEVELOPMENT: app + local Postgres + Prometheus + Grafana
+services:
+  taskflow-app:
+    build: ./app
+    container_name: taskflow-app
+    ports:
+      - "3000:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://taskflow:taskflow_pass@taskflow-db:5432/taskflow
+      DB_SSL: "false"
+      JWT_SECRET: ${JWT_SECRET:-dev-secret-change-me}
+    depends_on:
+      taskflow-db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  taskflow-db:
+    image: postgres:16-alpine
+    container_name: taskflow-db
+    environment:
+      POSTGRES_USER: taskflow
+      POSTGRES_PASSWORD: taskflow_pass
+      POSTGRES_DB: taskflow
+    volumes:
+      - taskflow-db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U taskflow"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  taskflow-prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: taskflow-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+
+  taskflow-grafana:
+    image: grafana/grafana:11.1.0
+    container_name: taskflow-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - taskflow-grafana-data:/var/lib/grafana
+    depends_on:
+      - taskflow-prometheus
+
+volumes:
+  taskflow-db-data:
+  taskflow-grafana-data:
