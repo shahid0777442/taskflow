@@ -1,0 +1,36 @@
+# PRODUCTION (AWS EC2): app image from GHCR + managed cloud Postgres (Neon / RDS)
+# Needs a .env file on the server (see .env.example) and IMAGE variable (set by CI/CD)
+services:
+  taskflow-app:
+    image: ${IMAGE}
+    container_name: taskflow-app
+    ports:
+      - "80:3000"
+    environment:
+      PORT: 3000
+      DATABASE_URL: ${DATABASE_URL}
+      DB_SSL: "true"
+      JWT_SECRET: ${JWT_SECRET}
+    restart: always
+
+  taskflow-prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: taskflow-prometheus
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: always
+
+  taskflow-grafana:
+    image: grafana/grafana:11.1.0
+    container_name: taskflow-grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD}
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - taskflow-grafana-data:/var/lib/grafana
+    restart: always
+
+volumes:
+  taskflow-grafana-data:
